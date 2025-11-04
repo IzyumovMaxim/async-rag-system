@@ -14,6 +14,7 @@ class Task(BaseModel):
         BaseModel: parent class for all pydantic models
     """
     user_id: int
+    chat_id: int
     text: str
 
 @app.post("/tasks")
@@ -30,10 +31,13 @@ async def create_task(task: Task):
     new_task = {
         'task_id': task_id,
         'user_id': task.user_id,
+        'chat_id': task.chat_id,
         'text': task.text
     }
     await task_queue.xadd("tasks", new_task)
-    await task_queue.hset(f"task:{task_id}", mapping={'status': 'queued', 'user_id': task.user_id, 'text': task.text})
+    await task_queue.hset(f"task:{task_id}", mapping={'status': 'queued', 
+                                                      'chat_id': task.chat_id, 
+                                                      'result': ''})
     print(f'Task {task_id} was added to queue')
     return {'task_id': task_id, 'status': 'queued'}
 
