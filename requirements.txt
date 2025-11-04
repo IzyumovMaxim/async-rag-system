@@ -1,2 +1,6 @@
 aiogram
 asyncio
+fastapi
+uvicorn
+pydantic
+redis
