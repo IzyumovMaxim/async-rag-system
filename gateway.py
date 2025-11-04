@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
+import redis.asyncio as aioredis
 
 app = FastAPI()
 
-task_queue = []
+task_queue = aioredis.from_url("redis://localhost:6379", decode_responses=True)
 
 class Task(BaseModel):
     """
@@ -31,6 +32,25 @@ async def create_task(task: Task):
         'user_id': task.user_id,
         'text': task.text
     }
-    task_queue.append(new_task)
+    await task_queue.xadd("tasks", new_task)
+    await task_queue.hset(f"task:{task_id}", mapping={'status': 'queued', 'user_id': task.user_id, 'text': task.text})
     print(f'Task {task_id} was added to queue')
     return {'task_id': task_id, 'status': 'queued'}
+
+@app.get("/tasks/{id}")
+async def get_task_status(id: str):
+    task_hash = await task_queue.hgetall(f"task:{id}")
+    if not task_hash:
+        return "Task not found"
+    return task_hash
+
+@app.get("/health")
+async def health():
+    try:
+        ok = await task_queue.ping()
+        if ok:
+            return {"status": "working", "detail": "Redis is working"}
+        else:
+            return {"status": "error", "detail": "Redis did not respond"}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
