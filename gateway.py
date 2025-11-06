@@ -2,10 +2,12 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import uuid
 import redis.asyncio as aioredis
+from os import getenv
 
 app = FastAPI()
 
-task_queue = aioredis.from_url("redis://localhost:6379", decode_responses=True)
+REDIS_URL = getenv("REDIS_URL", "redis://redis:6379")
+task_queue = aioredis.from_url(REDIS_URL, decode_responses=True)
 
 class Task(BaseModel):
     """
@@ -20,7 +22,7 @@ class Task(BaseModel):
 @app.post("/tasks")
 async def create_task(task: Task):
     """
-    Puts user message into query 
+    Puts user message into queue 
     Args:
         Object of task class which confirms structure of added data
 
@@ -35,9 +37,11 @@ async def create_task(task: Task):
         'text': task.text
     }
     await task_queue.xadd("tasks", new_task)
-    await task_queue.hset(f"task:{task_id}", mapping={'status': 'queued', 
-                                                      'chat_id': task.chat_id, 
-                                                      'result': ''})
+    await task_queue.hset(f"task:{task_id}", mapping={
+        'status': 'queued', 
+        'chat_id': task.chat_id, 
+        'result': ''
+    })
     print(f'Task {task_id} was added to queue')
     return {'task_id': task_id, 'status': 'queued'}
 
@@ -45,7 +49,7 @@ async def create_task(task: Task):
 async def get_task_status(id: str):
     task_hash = await task_queue.hgetall(f"task:{id}")
     if not task_hash:
-        return "Task not found"
+        return {"error": "Task not found"}
     return task_hash
 
 @app.get("/health")
@@ -53,8 +57,8 @@ async def health():
     try:
         ok = await task_queue.ping()
         if ok:
-            return {"status": "working", "detail": "Redis is working"}
+            return {"status": "healthy", "detail": "Redis is working"}
         else:
-            return {"status": "error", "detail": "Redis did not respond"}
+            return {"status": "unhealthy", "detail": "Redis did not respond"}
     except Exception as e:
-        return {"status": "error", "detail": str(e)}
+        return {"status": "unhealthy", "detail": str(e)}
