@@ -1,75 +1,10 @@
 # Python Documentation RAG Telegram Bot
 
-A scalable, asynchronous Retrieval-Augmented Generation (RAG) system that answers Python programming questions via Telegram, powered by local LLM (Ollama) and vector search (ChromaDB).
+A scalable, asynchronous Retrieval-Augmented Generation system that answers Python programming questions via Telegram, powered by local LLM and vector search.
 
 ## 🏗️ Architecture Overview
 
-```plantuml
-@startuml
-!define RECTANGLE class
 
-skinparam componentStyle rectangle
-skinparam backgroundColor #FEFEFE
-skinparam component {
-    BackgroundColor<<external>> LightBlue
-    BackgroundColor<<internal>> LightGreen
-    BackgroundColor<<storage>> LightYellow
-}
-
-package "User Interface" {
-    [Telegram User] <<external>>
-}
-
-package "Bot Service" {
-    [Bot.py\nAiogram Handler] as Bot
-}
-
-package "API Gateway" {
-    [Gateway.py\nFastAPI] as Gateway
-}
-
-package "Message Queue" {
-    [Redis Streams\n& Pub/Sub] as Redis <<storage>>
-}
-
-package "Worker Pool" {
-    [Worker 1] as W1
-    [Worker 2] as W2
-    [Worker N] as WN
-}
-
-package "RAG Engine" {
-    [RAG Module] as RAG
-    [Vector DB\nChromaDB] as Chroma <<storage>>
-    [LLM\nOllama] as Ollama <<external>>
-}
-
-package "Data Pipeline" {
-    [Document Parser] as Parser
-    [Python Docs] as Docs <<external>>
-}
-
-[Telegram User] --> Bot : "How to open file?"
-Bot --> Gateway : POST /tasks
-Gateway --> Redis : Push to Stream
-Redis --> W1 : Pull Task
-Redis --> W2 : Pull Task
-Redis --> WN : Pull Task
-W1 --> RAG : Query
-W2 --> RAG : Query
-WN --> RAG : Query
-RAG --> Chroma : Vector Search
-RAG --> Ollama : Generate Answer
-RAG --> W1 : Response
-W1 --> Redis : Publish Result
-Redis --> Bot : Subscribe to Results
-Bot --> [Telegram User] : Answer
-
-Parser --> Docs : Scrape
-Parser --> Chroma : Build Index
-
-@enduml
-```
 
 ## 📊 System Flow Diagram
 
