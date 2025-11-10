@@ -214,7 +214,7 @@ python -m rag.python_document_parser
 
 A list comprehension is a compact way to create lists in Python. It consists of an expression followed by a "for" clause, then zero or more "if" clauses.
 
-According to the Python documentation, [SOURCE 1], a list comprehension is defined as:
+According to the Python documentation [SOURCE 1], a list comprehension is defined as:
 
 "A compact way to create lists. It consists of an expression followed by a 'for' clause, then zero or more 'if' clauses."
 
@@ -238,16 +238,15 @@ odd_numbers = [x for x in numbers if x % 2 != 0]
 print(even_numbers)  # [2, 4]
 print(odd_numbers)   # [1, 3, 5]
 ```
-List comprehensions are a concise and expressive way to create lists in Python. They can be used to perform complex data transformations and filtering operations.
+List comprehensions are a concise and expressive way to create lists in Python. They can be used to perform complex operations on data in a single line of code.
 
 **References**
 
-[SOURCE 1]: Python documentation, "List Comprehensions"
+[SOURCE 1] Python documentation: "List Comprehensions" <https://docs.python.org/3/tutorial/datastructures.html#list-comprehensions>
 
 Sources:
-- https://docs.python.org/3/reference/expressions.html
 - https://docs.python.org/3/library/stdtypes.html
-
+- https://docs.python.org/3/reference/expressions.html
 
 ## 🛡️ Error Handling
 
