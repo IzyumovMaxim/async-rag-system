@@ -12,30 +12,54 @@ services:
       retries: 5
 
   gateway:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: uvicorn gateway:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     environment:
       - REDIS_URL=redis://redis:6379
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3.2
+      - CHROMA_PATH=/app/data/chroma_db
+    volumes:
+      - ./rag:/app/rag:ro
+      - ./data/chroma_db:/app/data/chroma_db  # Bind mount local directory
     depends_on:
       redis:
         condition: service_healthy
+    extra_hosts:
+      - host.docker.internal:host-gateway
 
   worker:
-    build: .
-    command: python worker.py worker-1
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python worker.py
     environment:
       - REDIS_URL=redis://redis:6379
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3.2
+      - CHROMA_PATH=/app/data/chroma_db
+    volumes:
+      - ./rag:/app/rag:ro
+      - ./data/chroma_db:/app/data/chroma_db  # Bind mount local directory
     depends_on:
       redis:
         condition: service_healthy
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    deploy:
+      replicas: 2
 
   telegram_bot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     command: python bot.py
     environment:
-      - BOT_TOKEN=SMTH
+      - BOT_TOKEN=${BOT_TOKEN}
       - REDIS_URL=redis://redis:6379
       - GATEWAY_URL=http://gateway:8000
     depends_on:

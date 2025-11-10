@@ -5,3 +5,7 @@ uvicorn
 pydantic
 redis
 httpx
+beautifulsoup4
+requests
+chromadb
+sentence_transformers

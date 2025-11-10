@@ -44,7 +44,7 @@ async def listen(bot: Bot):
                     data = json.loads(message['data'])
                     user_id = data['user_id']
                     result = data['result']
-                    await bot.send_message(user_id, result)
+                    await bot.send_message(user_id, result, parse_mode=None)
         except Exception as e:
             logging.exception(f"Redis error: {e}")
             await asyncio.sleep(5)
