@@ -1,6 +1,6 @@
 # Python Documentation RAG Telegram Bot
 
-A scalable, asynchronous Retrieval-Augmented Generation system that answers Python programming questions via Telegram, powered by local LLM and vector search.
+Asynchronous Retrieval-Augmented Generation system that answers Python programming questions via Telegram, powered by local LLM and vector search.
 
 ## 📁 Project Structure
 
