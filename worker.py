@@ -4,7 +4,7 @@ import sys
 import json
 import logging
 from os import getenv
-
+from rag.rag import answer
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,11 @@ class Worker:
             logger.info(f"Consumer group already exists or error: {e}")
 
     async def rag(self, text: str):
-        await asyncio.sleep(2)
-        return f"Rag answers on: {text}"
+        try:
+            return await answer(text)
+        except Exception as e:
+            logger.exception(f"{self.worker_id}: RAG error: {e}")
+            return f"Error: {str(e)}"
     
     async def process_task(self, task_data: dict):
         task_id = task_data.get('task_id')
