@@ -2,126 +2,6 @@
 
 A scalable, asynchronous Retrieval-Augmented Generation system that answers Python programming questions via Telegram, powered by local LLM and vector search.
 
-## 🏗️ Architecture Overview
-
-![ach diagram](diagrams/architecture.png)
-
-## 📊 System Flow Diagram
-
-```plantuml
-@startuml
-skinparam sequenceMessageAlign center
-skinparam backgroundColor #FEFEFE
-
-actor User
-participant "Bot\n(Aiogram)" as Bot
-participant "Gateway\n(FastAPI)" as Gateway
-participant "Redis\nStreams" as Queue
-participant "Worker" as Worker
-participant "RAG\nEngine" as RAG
-participant "ChromaDB" as Vector
-participant "Ollama\nLLM" as LLM
-participant "Redis\nPub/Sub" as PubSub
-
-User -> Bot: /start or question
-Bot -> Gateway: POST /tasks\n{user_id, chat_id, text}
-Gateway -> Gateway: Generate task_id
-Gateway -> Queue: XADD tasks {task_id, user_id, text}
-Gateway -> Gateway: HSET task:{id} status="queued"
-Gateway --> Bot: {task_id, status: "queued"}
-
-Queue -> Worker: XREADGROUP\n(blocking, count=1)
-Worker -> Worker: HSET task:{id}\nstatus="processing"
-Worker -> RAG: answer(text)
-
-RAG -> Vector: query(text, n_results=5)
-Vector -> Vector: Semantic search\nusing embeddings
-Vector --> RAG: Top 5 chunks\n+ metadata
-
-RAG -> RAG: Build prompt with\ncontext + instructions
-RAG -> LLM: POST /api/generate\n{model, prompt}
-LLM -> LLM: Generate answer\n(Llama 3.2)
-LLM --> RAG: Response text
-
-RAG --> Worker: Formatted answer\n+ sources
-
-Worker -> Worker: HSET task:{id}\nstatus="complete"
-Worker -> PubSub: PUBLISH results\n{task_id, user_id, result}
-
-PubSub --> Bot: Subscribe listener\nreceives result
-Bot -> User: Send answer\n(Markdown formatted)
-
-@enduml
-```
-
-## 🗂️ Component Architecture
-
-```plantuml
-@startuml
-!define COMPONENT rectangle
-
-skinparam component {
-    BackgroundColor LightGreen
-    BorderColor DarkGreen
-}
-
-skinparam database {
-    BackgroundColor LightYellow
-    BorderColor DarkOrange
-}
-
-COMPONENT "Bot Service" as BOT {
-    [Message Handler]
-    [Command Handler]
-    [Result Listener]
-}
-
-COMPONENT "Gateway Service" as GW {
-    [Task Creation API]
-    [Status Checker]
-    [Health Check]
-}
-
-COMPONENT "Worker Service" as WORKER {
-    [Task Consumer]
-    [RAG Processor]
-    [Error Handler]
-}
-
-COMPONENT "RAG Module" as RAG {
-    [Query Processor]
-    [Relevance Checker]
-    [Prompt Builder]
-    [LLM Client]
-}
-
-database "Redis" as REDIS {
-    [Streams (Tasks)]
-    [Hashes (Status)]
-    [Pub/Sub (Results)]
-}
-
-database "ChromaDB" as CHROMA {
-    [py_docs Collection]
-    [Embeddings Index]
-    [Metadata Store]
-}
-
-database "Ollama" as OLLAMA {
-    [Llama 3.2 Model]
-}
-
-BOT --> GW : HTTP REST
-GW --> REDIS : Task Queue
-WORKER --> REDIS : Pull & Publish
-WORKER --> RAG : Process Query
-RAG --> CHROMA : Vector Search
-RAG --> OLLAMA : Generate
-BOT <-- REDIS : Subscribe
-
-@enduml
-```
-
 ## 📁 Project Structure
 
 ```
@@ -143,61 +23,6 @@ async-rag-system/
 ├── requirements.txt            # Python dependencies
 └── README.md                   # This file
 ```
-
-## 🔄 Data Flow
-
-```plantuml
-@startuml
-skinparam activityBackgroundColor LightGreen
-skinparam activityBorderColor DarkGreen
-skinparam activityDiamondBackgroundColor LightYellow
-
-start
-
-:User sends message to Bot;
-
-:Bot forwards to Gateway;
-
-:Gateway creates task
-UUID & adds to Redis Stream;
-
-:Worker polls Redis Stream
-(blocking XREADGROUP);
-
-if (Task available?) then (yes)
-    :Worker receives task;
-    :Set status = "processing";
-    
-    :RAG: Retrieve context from ChromaDB;
-    
-    if (Context relevant?) then (yes)
-        :Build prompt with context;
-        :Send to Ollama LLM;
-        :Generate answer;
-        
-        :Format response with sources;
-        :Set status = "complete";
-        :Publish to Redis Pub/Sub;
-    else (no)
-        :Return "Cannot answer" message;
-        :Set status = "complete";
-        :Publish to Pub/Sub;
-    endif
-    
-    :Worker ACKs message;
-else (no)
-    :Wait 5 seconds;
-endif
-
-:Bot listener receives result;
-
-:Bot sends to user via Telegram;
-
-stop
-
-@enduml
-```
-
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -206,7 +31,23 @@ stop
 - Ollama running locally (port 11434)
 - Telegram Bot Token (from [@BotFather](https://t.me/botfather))
 
-### Installation
+
+### Running Without Docker
+
+```bash
+# Terminal 1: Redis
+redis-server
+
+# Terminal 2: Gateway
+uvicorn gateway:app --host 0.0.0.0 --port 8000
+
+# Terminal 3: Worker(s)
+python worker.py worker-1
+
+# Terminal 4: Bot
+python bot.py
+```
+### Set up
 
 1. **Clone the repository**
    ```bash
@@ -240,21 +81,18 @@ stop
    docker-compose up --build
    ```
 
-### Running Without Docker
 
-```bash
-# Terminal 1: Redis
-redis-server
+## 🏗️ Architecture Overview
 
-# Terminal 2: Gateway
-uvicorn gateway:app --host 0.0.0.0 --port 8000
+![ach diagram](diagrams/architecture.png)
 
-# Terminal 3: Worker(s)
-python worker.py worker-1
+## 📊 System Flow Diagram
 
-# Terminal 4: Bot
-python bot.py
-```
+![ach diagram](diagrams/system_flow.png)
+
+## 🔄 Data Flow
+
+![ach diagram](diagrams/data_flow.png)
 
 ## 🏛️ System Components
 
@@ -353,53 +191,6 @@ temperature = 0.1           # LLM temperature (lower = more focused)
 max_tokens = 500           # Maximum response length
 ```
 
-## 📈 Scaling Considerations
-
-### Horizontal Scaling
-
-```plantuml
-@startuml
-!define WORKER rectangle
-
-skinparam component {
-    BackgroundColor LightGreen
-}
-
-package "Worker Pool" {
-    WORKER "Worker 1" as W1
-    WORKER "Worker 2" as W2
-    WORKER "Worker 3" as W3
-    WORKER "Worker N" as WN
-}
-
-database "Redis\nConsumer Group" as Redis
-
-Redis <--> W1 : Concurrent\nTask Processing
-Redis <--> W2 : Load Balancing
-Redis <--> W3 : Fault Tolerance
-Redis <--> WN : Scalable
-
-note right of Redis
-    Each worker pulls tasks
-    from the same stream
-    using consumer groups
-end note
-
-@enduml
-```
-
-**To add more workers**:
-```bash
-docker-compose up --scale worker=5
-```
-
-### Performance Optimization
-
-- **Batch Processing**: Workers process tasks concurrently
-- **Connection Pooling**: Redis connections are reused
-- **Caching**: ChromaDB embeddings cached on disk
-- **Rate Limiting**: Configurable block timeout in Redis Streams
-
 ## 🧪 Testing
 
 ```bash
@@ -415,22 +206,47 @@ python -m rag.python_document_parser
 
 ## 📝 Example Interactions
 
-**User**: "How do I open and read a file in Python?"
+**User**: "What is a list comprehension?"
 
 **Bot Response**:
 ```
-To open and read a file in Python, use the built-in open() function 
-with the 'r' mode. [SOURCE 1]
+**List Comprehensions**
 
-Example:
-with open('file.txt', 'r') as f:
-    content = f.read()
+A list comprehension is a compact way to create lists in Python. It consists of an expression followed by a "for" clause, then zero or more "if" clauses.
 
-The 'with' statement ensures the file is properly closed. [SOURCE 2]
+According to the Python documentation, [SOURCE 1], a list comprehension is defined as:
+
+"A compact way to create lists. It consists of an expression followed by a 'for' clause, then zero or more 'if' clauses."
+
+The syntax for a list comprehension is:
+```python
+[expression for variable in iterable if condition]
+```
+For example:
+```python
+numbers = [1, 2, 3, 4, 5]
+squared_numbers = [x**2 for x in numbers]
+print(squared_numbers)  # [1, 4, 9, 16, 25]
+```
+In this example, the expression `x**2` is evaluated for each element `x` in the `numbers` list, and the resulting values are collected into a new list.
+
+List comprehensions can also include multiple "for" clauses and "if" clauses:
+```python
+numbers = [1, 2, 3, 4, 5]
+even_numbers = [x for x in numbers if x % 2 == 0]
+odd_numbers = [x for x in numbers if x % 2 != 0]
+print(even_numbers)  # [2, 4]
+print(odd_numbers)   # [1, 3, 5]
+```
+List comprehensions are a concise and expressive way to create lists in Python. They can be used to perform complex data transformations and filtering operations.
+
+**References**
+
+[SOURCE 1]: Python documentation, "List Comprehensions"
 
 Sources:
-- https://docs.python.org/3/tutorial/inputoutput.html
-- https://docs.python.org/3/library/functions.html
+- https://docs.python.org/3/reference/expressions.html
+- https://docs.python.org/3/library/stdtypes.html
 ```
 
 ## 🛡️ Error Handling
@@ -446,27 +262,6 @@ Sources:
 - Requires Ollama running on `host.docker.internal:11434`
 - English language only
 - Maximum context window depends on LLM model
-
-## 🔮 Future Enhancements
-
-- [ ] Add conversation history
-- [ ] Support multiple programming languages
-- [ ] Implement user feedback loop
-- [ ] Add answer caching
-- [ ] Web interface dashboard
-- [ ] Metrics and monitoring (Prometheus)
-
-## 📄 License
-
-MIT License
-
-## 🤝 Contributing
-
-Contributions welcome! Please read CONTRIBUTING.md first.
-
-## 📧 Contact
-
-For questions and support, open an issue on GitHub.
 
 ---
 
