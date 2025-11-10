@@ -4,7 +4,7 @@ A scalable, asynchronous Retrieval-Augmented Generation system that answers Pyth
 
 ## 🏗️ Architecture Overview
 
-
+![ach diagram](diagrams/architecture.png)
 
 ## 📊 System Flow Diagram
 
