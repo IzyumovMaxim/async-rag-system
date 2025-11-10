@@ -209,7 +209,7 @@ python -m rag.python_document_parser
 **User**: "What is a list comprehension?"
 
 **Bot Response**:
-```
+
 **List Comprehensions**
 
 A list comprehension is a compact way to create lists in Python. It consists of an expression followed by a "for" clause, then zero or more "if" clauses.
@@ -247,7 +247,7 @@ List comprehensions are a concise and expressive way to create lists in Python. 
 Sources:
 - https://docs.python.org/3/reference/expressions.html
 - https://docs.python.org/3/library/stdtypes.html
-```
+
 
 ## 🛡️ Error Handling
 
